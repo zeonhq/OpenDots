@@ -131,6 +131,65 @@ Accepted by Naya (nayaOS). These close the former open questions in §7.
 
 ---
 
+## Zeon intelligence (zeonhq/api)
+
+**Otis lock:** Zeon intelligence = **zeonhq/api** fuels Orb chat. LLMs stay **agnostic**. **No CopilotKit Intelligence.**
+
+Inventory date: **2026-10-01 PT** (Studio). Phase 2 local-chat already lands at `feat/opendots-local-threads` (`0c97dc7`) via OpenAI-compatible `POST {OPENAI_BASE_URL}/chat/completions` (`src/server/local-chat.ts`).
+
+### Where things live
+
+| Piece | Path / remote | Role for Orb |
+|-------|---------------|--------------|
+| **zeonhq/api** | `/Users/aeon/workspace/zeonhq/api` → `github.com/zeonhq/api` | First-party product API. Today: domain routers call Hermes (e.g. `naya_assist` WS protocol via `NAYA_AGENT_URL`; `gaal` → `{GAAL_AGENT_URL}/v1/chat/completions`). **No general OpenAI-compatible Orb chat facade yet.** |
+| **Hermes agent (fork)** | `/Users/aeon/workspace/zeonhq/_thirdparty/hermes-agent` → `zeonhq/hermes-agent` (upstream NousResearch) | Runs the Naya SOUL / agent. Two OpenAI-shaped wires (below). Dashboard ≠ wire. |
+| **ORB_LLM_SETTINGS** | `nayaOS/product/ORB_LLM_SETTINGS.md` | Image contract: default mode `hermes_proxy`, port **8645**, Bitwarden env **hints** only, hostname in operator/Bitwarden. |
+| **OpenDots lab** | `/Users/aeon/workspace/zeonhq/_thirdparty/OpenDots` | Consumer: `OPENAI_BASE_URL` + `OPENAI_API_KEY` + `OPENAI_MODEL`. |
+
+No standalone `hermes/` app repo under `zeonhq/` root — Hermes is the `_thirdparty/hermes-agent` checkout plus lab process(es).
+
+### Concrete endpoints (wire, not dashboard)
+
+| Wire | Endpoint | Auth pattern (names only) | Notes |
+|------|----------|---------------------------|-------|
+| **Hermes subscription proxy** (default Orb mode) | `POST http://<host>:8645/v1/chat/completions` (also `/v1/models`) | Client may send **any** Bearer; proxy attaches real OAuth. Lab client env: `OPENAI_BASE_URL`, `OPENAI_API_KEY` (placeholder OK), `OPENAI_MODEL`. Operator inject: `BWS_ACCESS_TOKEN`. Settings secret_ref name: `bitwarden:nayaos/orb/hermes`. | `hermes proxy start` — `DEFAULT_PORT=8645`. **Not** dashboard **9132**. |
+| **Hermes API server** (full agent + tools) | `POST http://127.0.0.1:8642/v1/chat/completions` (default) | Bearer `API_SERVER_KEY`. Env: `API_SERVER_ENABLED`, `API_SERVER_PORT`, `API_SERVER_HOST`, `API_SERVER_KEY`. | Different product: agent backend, not raw subscription passthrough. |
+| **Hermes dashboard** | Naya default `NAYA_AGENT_URL` → port **9132**; Gaal dashboard **9130** | Session token / WS protocol (`HERMES_NAYA_SESSION_TOKEN`, `HERMES_SESSION_TOKEN`, …) | **Not** the OpenAI chat wire. Do not point `OPENAI_BASE_URL` here. |
+| **zeonhq/api → Hermes (today)** | Domain routes only (e.g. assist / Medyfy / GAAL) | Server-side env hints: `NAYA_AGENT_URL`, `MEDYFY_NAYA_HERMES_URL`, `GAAL_AGENT_URL`, session/policy token **names** as in api services — **no secrets in this doc** | Not a drop-in `OPENAI_BASE_URL` for OpenDots yet. |
+
+### Can OpenDots local-chat hit Hermes via `OPENAI_BASE_URL` today?
+
+**Yes — shape already matches.** `openaiCompatibleChat` posts to `{baseUrl}/chat/completions` with `Authorization: Bearer ${OPENAI_API_KEY}`. Pointing lab env at the subscription proxy works when that process is up:
+
+```bash
+# Recommended lab recreate (values from Bitwarden / operator config — not committed)
+OPENAI_BASE_URL=http://127.0.0.1:8645/v1   # or lab hostname:8645/v1
+OPENAI_API_KEY=sk-unused                   # proxy accepts any bearer
+OPENAI_MODEL=<model advertised by proxy> # e.g. Hermes catalog id
+# Optional operator bootstrap: BWS_ACCESS_TOKEN → resolve bitwarden:nayaos/orb/hermes
+```
+
+Studio check (2026-10-01 PT): lab `opendots.env` still targets cloud OpenAI `…/v1`; nothing listening on **8645** / **9132** at inventory time. So capability is in code; live Hermes-fueled turn still needs proxy + env switch.
+
+### Phase 2.5 plan (next adapter target)
+
+1. **Keep OpenAI-compatible shape** — no CopilotKit Intelligence; continue `local-chat.ts` / `OPENAI_*` triple.
+2. **Default `OPENAI_BASE_URL` to Hermes / zeonhq-api when available** — prefer subscription proxy `:8645/v1` (ORB_LLM_SETTINGS default). When zeonhq/api grows a first-party OpenAI-compatible Orb facade, same env switch — no UI required for the lab prove.
+3. **UI still later** — no Orb/LLM Settings page in OpenDots this slice; mode switch is env / Bitwarden only (nayaOS Settings page is a separate chrome track).
+4. **Do not** call third-party Intelligence hosts; do not commit secrets; do not treat dashboard **9132** as the wire.
+
+### Gaps before a real Zeon-fueled Orb turn
+
+1. Hermes **proxy** (or chosen API-server profile) must be running and reachable from the OpenDots process/compose network.
+2. Lab hostname for `:8645` lives in operator config / Bitwarden — not invented in git.
+3. `OPENAI_MODEL` must match what the proxy/API server advertises.
+4. **zeonhq/api** still lacks a dedicated OpenAI-compatible Orb chat facade; until then Hermes proxy is the wire, api remains domain intelligence for other products.
+5. Compose/localhost networking: containerized OpenDots cannot use `127.0.0.1` of the host without `host.docker.internal` / host network / published proxy.
+6. Auth story for a future api facade (Zeon session vs placeholder Bearer) is undecided — keep placeholder-Bearer only for Hermes subscription proxy.
+7. No product UI for provider switch yet (Phase 2.5 = env default only).
+
+---
+
 ## Appendix A — Phase 0 inventory: Intelligence / CopilotKit coupling (file paths)
 
 Concrete paths skimmed from `package.json` and `src/` (no secrets).
@@ -205,6 +264,6 @@ Concrete paths skimmed from `package.json` and `src/` (no secrets).
 - Lab **only** on localhost Docker — not baked into nayaOS  
 - Goose remains Orb runtime in **nayaORB** until verified otherwise  
 - No CopilotKit Intelligence / no outside SaaS for conversation data  
-- Multi-LLM later via adapter (OpenAI / Grok / Claude / Naya AI)  
+- Multi-LLM via adapter (OpenAI / Grok / Claude / Naya AI); **Phase 2.5** defaults `OPENAI_BASE_URL` to Hermes proxy / zeonhq/api when available — see **Zeon intelligence (zeonhq/api)**  
 - Goal: own Orb/Orbit using OpenDots UI/architecture, same adoption pattern as Goose  
 - Eventually: bespoke app inside nayaOS (maybe Zeon OS / Aeon later)
