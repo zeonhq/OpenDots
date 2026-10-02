@@ -277,6 +277,49 @@ Same adoption pattern as Goose in nayaORB: **edge adapter + Zeon owns the path**
 - Keep OpenAI-compatible consumer shape (`local-chat.ts` / `OPENAI_*`); do not bake provider into nayaOS or invent a new SaaS.
 - Point lab runtime at Hermes **subscription proxy** wire `:8645/v1` (not dashboard `:9132`). Container uses `OPENAI_BASE_URL=http://host.docker.internal:8645/v1`.
 - `OPENAI_API_KEY` placeholder (`sk-unused`); proxy attaches real OAuth. Secrets via Bitwarden **names** only — `secret_ref`: `bitwarden:nayaos/orb/hermes` (env hint `BWS_ACCESS_TOKEN`).
-- Model id follows Goose/nayaORB lab wire (`grok-4.6` in Studio `opendots.env`); swap only to ids the proxy advertises.
-- Start command (documented): `hermes proxy start` (or `hermes -p <profile> proxy start --provider nous`) — `DEFAULT_PORT=8645`. See hermes-agent `subscription-proxy` docs.
-- Studio wire attempt: env + app container recreated; nothing listening on **8645** (Tailscale lab `agents…:8645` timed out; local `hermes -p hari proxy start` refused — Nous refresh invalid). `POST /api/threads/:id/messages` → **503**. Re-auth / bring proxy up, then retest — no push.
+- Model id follows Goose/nayaORB lab wire (`grok-4.6`); swap only to ids the proxy advertises.
+- **Do not** call third-party CopilotKit Intelligence; match Goose's agnostic adapter pattern.
+
+### Exact Goose → Hermes → Grok lab facts (found + Naya-confirmed 2026-10-01 ~23:49 PT)
+
+| Layer | Fact |
+|-------|------|
+| **Goose (nayaORB)** | Runtime locked. Speaks OpenAI-compatible host via `GOOSE_PROVIDER=openai` → `OPENAI_HOST` / `OPENAI_BASE_PATH` (protocol adapter, not OpenAI vendor lock). Lab `orb.json` shape: `provider=openai_compatible`, `model=grok-4.6`, `base_url=…:8645/v1`. Docs: `nayaORB/docs/GOOSE.md`, `DECISIONS.md`, `LAB_IMAC.md`. |
+| **Hermes profile** | Product identity profile **`naya`** (SOUL). **Not** Studio Hermes profile `hari` (Nous). Naya-confirmed wire profile: **`naya`**, provider **`xai-oauth`**, model **`grok-4.6`**. |
+| **Proxy upstream** | `hermes proxy providers` → `nous` (Nous Portal), **`xai`** (xAI Grok OAuth). OpenDots lab uses **`--provider xai`**, not Nous. |
+| **Start command** | `hermes proxy start --provider xai --host 0.0.0.0 --port 8645` (optionally `hermes -p naya …` once profile exists). Default bind port **8645**. |
+| **Auth** | `hermes login --provider xai-oauth` **or** `hermes auth add xai-oauth --type oauth` (interactive SuperGrok OAuth). Proxy start fails without it: `Not logged into xAI Grok OAuth. Run \`hermes auth add xai-oauth --type oauth\` first.` |
+| **OpenDots lab env (Studio, live)** | `OPENAI_BASE_URL=http://host.docker.internal:8645/v1`, `OPENAI_MODEL=grok-4.6`, `OPENAI_API_KEY=sk-unused`. Already OpenAI-compatible to host proxy. |
+
+Studio sources checked: `~/.hermes` (default + `profiles/hari` only — **no `naya` profile dir**), `~/.config/goose` (extensions + empty `xai_oauth/` dir; no committed provider secret), `nayaORB` README/DECISIONS/LAB_IMAC/GOOSE, `nayaOS/product/ORB_LLM_SETTINGS.md`.
+
+### Studio retest 2026-10-01 ~23:49 PT
+
+1. `hermes proxy status` (default): **nous** not logged in; **xai** not logged in.
+2. `hermes -p naya …` → **Profile 'naya' does not exist** (`hermes profile create naya` required first on this host).
+3. `hermes proxy start --provider xai --host 0.0.0.0 --port 8645` → **blocked** (xAI OAuth missing). Nothing listening on **8645**.
+4. OpenDots `POST /api/threads/:id/messages` (Bearer owner token, thread `5ddd45ca-…`) → **HTTP 503** (`The service request failed…`) — expected with dead upstream; env already points at `:8645`.
+5. **Blocker for Otis/Hari (interactive):** create/use profile `naya`, complete SuperGrok OAuth, then restart proxy:
+
+```bash
+hermes profile create naya   # if missing on this machine
+hermes -p naya login --provider xai-oauth
+# or: hermes -p naya auth add xai-oauth --type oauth
+hermes -p naya proxy start --provider xai --host 0.0.0.0 --port 8645
+# then retest POST /api/threads/:id/messages (status only)
+```
+
+Do **not** invent SaaS / CopilotKit Intelligence. Do **not** use `hari` + Nous for this lab wire.
+
+---
+
+## Otis locks — 2026-10-01 ~23:49 PT
+
+Appended as operator locks (OpenDots spike + nayaOS pointer):
+
+1. **nayaOS = OS**; apps/modules (**ZPL, Orion, Gaal, Libra, Orb**) are **local-first / offline-capable**.
+2. **Knowledge unified onto each machine** for rapid Orb reference.
+3. **On-device + admin-protected knowledge engines** (delete/manipulate; **anti-extraction**).
+4. **Engines / math / KB baked into OS / Orb** — **not** dependent on external apps.
+5. **External infra = sync / push update only**.
+6. **LLM:** Goose wire was **Hermes → Grok** (agnostic adapter); **match that for OpenDots**, **not** third-party Intelligence.
