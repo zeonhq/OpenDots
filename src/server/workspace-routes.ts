@@ -47,6 +47,36 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
     }
     return c.json(thread);
   });
+
+  app.post('/threads/:id/messages', async (c) => {
+    const data = z
+      .object({
+        content: z.string().trim().min(1).max(12000),
+      })
+      .strict()
+      .safeParse(await c.req.json());
+    if (!data.success)
+      return c.json({ error: 'Enter a message (up to 12,000 characters).' }, 400);
+    if (platform.setup().missing.length)
+      return c.json(
+        { error: `Setup required: ${platform.setup().missing.join(', ')}.` },
+        503,
+      );
+    try {
+      platform.workspace.requireThread(c.req.param('id'));
+    } catch {
+      return c.json({ error: 'Thread not found.' }, 404);
+    }
+    return c.json(
+      await platform.sendLocalMessage(
+        c.req.param('id'),
+        data.data.content,
+        c.req.raw.signal,
+      ),
+      201,
+    );
+  });
+
   app.post('/threads', async (c) => {
     const data = z
       .object({
@@ -239,7 +269,7 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
   app.onError((error, c) => {
     const text = error.message;
     const known =
-      /^(Setup|Voice setup|Dot |Space |Specialist |Conversation |Call |This call|End the current|Voice provider|An audio|Intelligence could not)/.test(
+      /^(Setup|Voice setup|Dot |Space |Specialist |Conversation |Call |This call|End the current|Voice provider|An audio|Intelligence could not|Thread not found|Model provider)/.test(
         text,
       );
     return c.json(
