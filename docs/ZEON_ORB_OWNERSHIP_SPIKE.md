@@ -4,7 +4,7 @@
 **Fork:** https://github.com/zeonhq/OpenDots  
 **Lab path:** `/Users/aeon/workspace/zeonhq/_thirdparty/OpenDots`  
 **Date:** 2026-10-01 (PT)  
-**Status:** spike plan only — no bake, no Goose replace, no secrets
+**Status:** spike plan + Naya answers accepted (2026-10-01 PT) — no bake, no Goose replace, no secrets
 
 Pointer from nayaOS: `nayaOS/product/OPENDOTS_ORB_OWNERSHIP_SPIKE.md`
 
@@ -103,16 +103,31 @@ Avoid large renames and Slack/Learning/Voice in the first PRs.
 
 ---
 
-## 6. Open questions for Otis / Naya
+## 6. Naya answers (nayaOS) — 2026-10-01 PT
 
-1. Should local thread persistence be SQLite, JSON files under the compose volume, or an existing Zeon store API from day one?  
-2. Does Orbit (Space) map 1:1 to Command spaces / Forge workspaces, or is it a new Orb-only container?  
-3. Approval cards: reuse nayaORB/Goose approval event schema, or define a thin Orb-native schema first?  
-4. Multi-LLM: who owns API keys in lab vs. Hermes proxy vs. Naya AI—same policy as `ORB_LLM_SETTINGS.md`?  
-5. Phase 4 packaging: Electron/Tauri desktop, browser app in Command, or Quadlet sidecar—preference?  
-6. Keep upstream CopilotKit React UI primitives temporarily (license/OK), or fork-clean UI with zero `@copilotkit/*` deps by end of Phase 2?  
-7. Computer/Max (OpenBot computers): in-scope for first Orbit demo, or defer behind chat+approval?  
-8. Branding in-product: show “Orb/Orbit” immediately in Phase 1, or stay OpenDots labels until Phase 3?
+Accepted by Naya (nayaOS). These close the former open questions in §7.
+
+1. **Threads Phase 1:** JSON/filesystem under the lab compose volume; SQLite only if the stub outgrows that. **No day-one Zeon store API** — wire existing/future Zeon APIs in **Phase 4**.
+2. **Orbit:** Orb-only container (workflow home + ACL). **Not** 1:1 with Command spaces-lite or Forge Space; cross-links later.
+3. **Approvals:** Thin Orb-native schema first, emitting Goose/nayaORB approve / decline / request-changes vocab. **Do not** block Phase 3 on a full Goose schema import.
+4. **Multi-LLM:** Follow `ORB_LLM_SETTINGS` policy — Bitwarden keys; default Hermes proxy; lab env override; **no secrets in git**.
+5. **Phase 4 packaging:** Browser/app window from Command chrome (naya apps class); Quadlet/sidecar if needed — **not** Electron-first, **not** ostree bake.
+6. **CopilotKit React:** OK for Phase 1–2 while local threads land; target **zero `@copilotkit/*` on the conversation path by end of Phase 2** (UI keep-list can stay).
+7. **Computer/Max:** Defer behind chat + approval. Command float Max stub stays **chrome-only** until then.
+8. **Branding:** Use Orb/Orbit in product copy from **Phase 1 empty-states**.
+
+---
+
+## 7. Open questions for Otis / Naya — **decided** (see §6)
+
+1. ~~Should local thread persistence be SQLite, JSON files under the compose volume, or an existing Zeon store API from day one?~~ → **Decided:** JSON/filesystem first; SQLite if needed; Zeon store APIs in Phase 4.  
+2. ~~Does Orbit (Space) map 1:1 to Command spaces / Forge workspaces, or is it a new Orb-only container?~~ → **Decided:** Orb-only container; cross-link later.  
+3. ~~Approval cards: reuse nayaORB/Goose approval event schema, or define a thin Orb-native schema first?~~ → **Decided:** thin Orb-native first; emit Goose/nayaORB vocab; no Phase 3 block on full import.  
+4. ~~Multi-LLM: who owns API keys in lab vs. Hermes proxy vs. Naya AI—same policy as `ORB_LLM_SETTINGS.md`?~~ → **Decided:** `ORB_LLM_SETTINGS` (Bitwarden / Hermes default / lab override).  
+5. ~~Phase 4 packaging: Electron/Tauri desktop, browser app in Command, or Quadlet sidecar—preference?~~ → **Decided:** Command chrome browser/app window; Quadlet/sidecar if needed; not Electron-first / not ostree bake.  
+6. ~~Keep upstream CopilotKit React UI primitives temporarily (license/OK), or fork-clean UI with zero `@copilotkit/*` deps by end of Phase 2?~~ → **Decided:** React OK Phase 1–2; zero `@copilotkit/*` on conversation path by end Phase 2.  
+7. ~~Computer/Max (OpenBot computers): in-scope for first Orbit demo, or defer behind chat+approval?~~ → **Decided:** defer; Max stub chrome-only until chat+approval.  
+8. ~~Branding in-product: show “Orb/Orbit” immediately in Phase 1, or stay OpenDots labels until Phase 3?~~ → **Decided:** Orb/Orbit from Phase 1 empty-states.
 
 ---
 
