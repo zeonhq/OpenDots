@@ -1,0 +1,195 @@
+# Zeon Orb / Orbit ownership spike (OpenDots)
+
+**Audience:** Otis Zeon / Hari  
+**Fork:** https://github.com/zeonhq/OpenDots  
+**Lab path:** `/Users/aeon/workspace/zeonhq/_thirdparty/OpenDots`  
+**Date:** 2026-10-01 (PT)  
+**Status:** spike plan only — no bake, no Goose replace, no secrets
+
+Pointer from nayaOS: `nayaOS/product/OPENDOTS_ORB_OWNERSHIP_SPIKE.md`
+
+---
+
+## 1. Intent
+
+Own **Orb / Orbit** product surface by reshaping OpenDots UI and architecture the same way Goose was adopted for the agent runtime: keep the useful shells (Dot≈Orb, Space≈Orbit, Threads≈chat, Computer≈Max, review cards≈approval), strip CopilotKit Intelligence and any outside SaaS for conversation data, run **lab-only on localhost Docker**, and eventually ship as a **bespoke app inside nayaOS** (and maybe Zeon OS / Aeon later). Goose remains the Orb runtime in **nayaORB** until something better is verified. Sensitive conversation data must stay in Zeon systems.
+
+---
+
+## 2. Keep / replace / drop
+
+| Area | Decision | Notes |
+|------|----------|--------|
+| UI shells (App, SpaceNav, SpaceWorkspace, SpaceLibrary, Chat, ThreadList, ComputerPanel, Page*, editor) | **Keep** (reshape) | Map Dot→Orb, Space→Orbit, Computer→Max; Zeon chrome later |
+| Review / approval cards (`PageReviewCard`, page-review decision flow) | **Keep** → wire to Zeon approval semantics | Primary approval UX pattern |
+| Threads / conversation store via CopilotKit Intelligence | **Replace** | Local (then Zeon-hosted) thread store; no CopilotKit cloud |
+| `@copilotkit/react-core` / `CopilotKitProvider` / `useThreads` / `useCopilotKit` | **Replace** | Thin Zeon chat client over local/Zeon APIs |
+| `@copilotkit/runtime` Intelligence (`CopilotKitIntelligence`, `/api/copilotkit`) | **Drop** | Hard coupling; see inventory below |
+| `@copilotkit/channels` Slack | **Drop** (lab) / optional later | Not required for Orb ownership spike |
+| OpenAI adapter (`@tanstack/ai-openai`, `OPENAI_*`, `openaiCompatibleText`) | **Keep shape / replace vendor** | Phase 2 multi-LLM adapter: OpenAI / Grok / Claude / Naya AI |
+| Browser service (`src/browser/*`, `BROWSER_*`, compose browser) | **Keep** (lab localhost only) | Useful for Computer/Max research; not baked into nayaOS |
+| OpenBot / Computers (`computer-*`, compose.computers*) | **Keep** (lab) | Maps to Orb Max / Computer panel pattern |
+| Learning (`src/server/learning.ts`, `src/shared/learning.ts`, Intelligence learning links) | **Drop** or defer | Tied to CopilotKit Learning / outside docs |
+| Voice / OpenAI Realtime (`src/server/voice.ts`, `useVoice.ts`) | **Defer** | Replace only after local threads + provider adapter exist |
+| Headless Intelligence agent (`src/server/headless.ts`) | **Drop / replace** | Depends on Intelligence WS |
+| Docker compose lab (`compose.yml`, computers compose) | **Keep** | Localhost bind only; lab isolation |
+| Goose / nayaORB agent runtime | **Keep (locked)** | Not replaced by OpenDots |
+| CopilotKit Intelligence project / account | **Drop** | Non-goal; no conversation SaaS |
+| Bake into nayaOS ostree / Containerfile | **Drop** | Ship as app later (Phase 4), not bake |
+
+---
+
+## 3. Phases and exit criteria
+
+### Phase 0 — Inventory
+
+**Do:** Confirm fork hygiene, map OpenDots concepts → Zeon names, list Intelligence coupling paths (below), decide lab compose profile (app+browser, no Slack).
+
+**Exit:** This spike doc accepted; coupling list agreed; lab runs on `127.0.0.1` only with no Intelligence key required for UI shell boot (may still fail chat until Phase 1).
+
+### Phase 1 — Strip Intelligence + local threads
+
+**Do:** Remove/gate `CopilotKitIntelligence`, `/api/copilotkit` dependency for create/list/get thread; introduce local thread + message store (filesystem or SQLite under lab volume); keep Chat/ThreadList UX against local API.
+
+**Exit:** Create / list / open thread and send a turn **without** `INTELLIGENCE_API_KEY`; no outbound calls to `*.copilotkit.ai` / Intelligence hosts; conversation bytes stay on localhost volume.
+
+### Phase 2 — Provider adapter
+
+**Do:** Replace single OpenAI path with a small adapter interface (OpenAI / Grok / Claude / Naya AI). Keep TanStack tool bridge shape where useful; stop requiring CopilotKit runtime for model calls.
+
+**Exit:** One lab config can switch providers via env (no secrets in git); at least two providers proven in lab; default lab path never uploads transcripts to third-party “Intelligence” products.
+
+### Phase 3 — Orbit/Space + approval cards → Zeon semantics
+
+**Do:** Rename/map Space→Orbit, Dot→Orb in product copy and IDs where cheap; wire `PageReviewCard` / `page-review-decision` to Zeon approval vocabulary (approve / decline / request-changes) matching Goose/nayaORB approval patterns where they exist.
+
+**Exit:** Demo Orbit with local threads + review card producing a Zeon-shaped approval event; Computer/Max panel still lab-optional.
+
+### Phase 4 — nayaOS app shell (not bake)
+
+**Do:** Package as a **bespoke app** launched from Command chrome (same class as other naya apps)—container/Quadlet or local process—**not** baked into ostree. Pointers from `nayaOS/product/ORB_*.md`; runtime agent remains Goose in nayaORB.
+
+**Exit:** From nayaOS Command, open Orb/Orbit UI that talks to lab/local backend; no Containerfile bake; Goose still default agent.
+
+### Phase 5 — Optional Zeon OS / Aeon
+
+**Do:** Only after Phase 4 is stable—evaluate carrying the same app into Zeon OS / Aeon surfaces.
+
+**Exit:** Explicit Otis go/no-go; otherwise stop at nayaOS app.
+
+---
+
+## 4. Non-goals
+
+- No CopilotKit account / Intelligence project for Zeon conversation data  
+- No patient data / PHI in the lab  
+- No replacing Goose as Orb runtime in nayaORB (until a later verified decision)  
+- No baking OpenDots into nayaOS ostree / workstation Containerfile  
+- No Slack / Learning / Voice as Phase 0–2 requirements  
+- No pushing this fork to remotes that 403 (e.g. harizeon); local branch only until Otis says otherwise  
+- No secrets in this doc or in committed `.env`
+
+---
+
+## 5. First PR candidates (smallest useful diffs)
+
+1. **Docs-only:** this spike + nayaOS pointer (this change).  
+2. **Config gate:** allow server boot and UI shell without `INTELLIGENCE_API_KEY`; clear “local threads not wired” empty state (no CopilotKit signup CTAs).  
+3. **Local thread stub:** minimal `GET/POST /api/threads` + in-memory or `/data` JSON store; ThreadList reads it.  
+4. **Strip Intelligence createThread/getThreadMessages** from `platform.ts` happy path once stub exists.  
+5. **Provider adapter skeleton:** `LLMProvider` interface wrapping current `openaiCompatibleText` call site in `dot-agent.ts`.
+
+Avoid large renames and Slack/Learning/Voice in the first PRs.
+
+---
+
+## 6. Open questions for Otis / Naya
+
+1. Should local thread persistence be SQLite, JSON files under the compose volume, or an existing Zeon store API from day one?  
+2. Does Orbit (Space) map 1:1 to Command spaces / Forge workspaces, or is it a new Orb-only container?  
+3. Approval cards: reuse nayaORB/Goose approval event schema, or define a thin Orb-native schema first?  
+4. Multi-LLM: who owns API keys in lab vs. Hermes proxy vs. Naya AI—same policy as `ORB_LLM_SETTINGS.md`?  
+5. Phase 4 packaging: Electron/Tauri desktop, browser app in Command, or Quadlet sidecar—preference?  
+6. Keep upstream CopilotKit React UI primitives temporarily (license/OK), or fork-clean UI with zero `@copilotkit/*` deps by end of Phase 2?  
+7. Computer/Max (OpenBot computers): in-scope for first Orbit demo, or defer behind chat+approval?  
+8. Branding in-product: show “Orb/Orbit” immediately in Phase 1, or stay OpenDots labels until Phase 3?
+
+---
+
+## Appendix A — Phase 0 inventory: Intelligence / CopilotKit coupling (file paths)
+
+Concrete paths skimmed from `package.json` and `src/` (no secrets).
+
+### Dependencies (`package.json`)
+
+- `@copilotkit/channels`
+- `@copilotkit/core`
+- `@copilotkit/react-core`
+- `@copilotkit/runtime`
+- `@tanstack/ai` / `@tanstack/ai-openai` (model path; keep shape, swap vendors)
+
+### Server — Intelligence / runtime
+
+- `src/server/index.ts` — loads `INTELLIGENCE_*`, `OPENAI_*`; builds `/api/copilotkit` runtime URL; Intelligence WS default host  
+- `src/server/platform-config.ts` — `intelligenceKey` / `intelligenceApiUrl` / `intelligenceWsUrl`; treats Intelligence as required setup  
+- `src/server/platform.ts` — `CopilotKitIntelligence`, `basePath: '/api/copilotkit'`, createThread / getThreadMessages  
+- `src/server/workspace-routes.ts` — `app.all('/copilotkit/*', …)`  
+- `src/server/runtime-scope.ts` — `/api/copilotkit/` prefix  
+- `src/server/dot-agent.ts` — `@copilotkit/runtime/v2`, requires `intelligenceKey`, `openaiCompatibleText`  
+- `src/server/headless.ts` — `IntelligenceAgent` from `@copilotkit/core`  
+- `src/server/learning.ts` — `CopilotKitIntelligence` types  
+- `src/server/page-service.ts` — `PageIntelligence` thread message access  
+- `src/server/page-routes.ts` — Intelligence error copy  
+- `src/server/page-tools.ts` — `defineTool` from `@copilotkit/runtime/v2`  
+- `src/server/computer-tools.ts` — `defineTool` from `@copilotkit/runtime/v2`  
+- `src/server/tanstack-tools.ts` — CopilotKit tool factory / `copilotkit_*` skill names  
+- `src/server/slack-channel.ts` — `@copilotkit/channels`  
+- `src/server/voice.ts` — OpenAI Realtime + Intelligence transcript sync messaging  
+- `src/server/research.ts` — live mode requires `OPENAI_*` + `BROWSER_*`
+
+### Client — CopilotKit React
+
+- `src/client/App.tsx` — `CopilotKitProvider`, `runtimeUrl="/api/copilotkit"`  
+- `src/client/Chat.tsx` — `useCopilotKit`, `runAgent` / `stopAgent`  
+- `src/client/ThreadList.tsx` — `useThreads`  
+- `src/client/WorkspaceDialog.tsx` — Intelligence project / Learning setup copy  
+- `src/client/ComputerPanel.tsx` — docs links (upstream)
+
+### Shared / config / compose
+
+- `src/shared/types.ts` — `intelligence: boolean` capability flag  
+- `src/shared/voice-receipt.ts` — Intelligence message-id notes  
+- `src/shared/learning.ts` — learning types  
+- `.env.example` — `INTELLIGENCE_API_KEY` / `INTELLIGENCE_API_URL` / `INTELLIGENCE_WS_URL`, `OPENAI_*`, `BROWSER_*`, `SLACK_*`  
+- `compose.yml` — passes Intelligence + OpenAI + browser env (lab localhost ports)
+
+### UI keep-list (reshape, low Intelligence coupling)
+
+- `src/client/SpaceNav.tsx`, `SpaceWorkspace.tsx`, `SpaceLibrary.tsx`  
+- `src/client/PageReviewCard.tsx`, `page-review-decision.ts`, `src/shared/page-review.ts`  
+- `src/client/ComputerPanel.tsx`, `ComputerToolCard.tsx`  
+- `src/client/PageDocument.tsx`, `PageConversation.tsx`, editor/*  
+- `src/browser/*` — browser service (lab)  
+- `src/server/computer-*.ts` — computers (lab)
+
+### Concept map (OpenDots → Zeon)
+
+| OpenDots | Zeon |
+|----------|------|
+| Dot | Orb |
+| Space | Orbit |
+| Threads | Orb chat / threads |
+| Computer | Orb Max (Command module) |
+| Review cards | Approval cards |
+| Agent runtime (upstream Intelligence) | Goose in nayaORB (unchanged for now) |
+
+---
+
+## Appendix B — Lab posture (locked context)
+
+- Lab **only** on localhost Docker — not baked into nayaOS  
+- Goose remains Orb runtime in **nayaORB** until verified otherwise  
+- No CopilotKit Intelligence / no outside SaaS for conversation data  
+- Multi-LLM later via adapter (OpenAI / Grok / Claude / Naya AI)  
+- Goal: own Orb/Orbit using OpenDots UI/architecture, same adoption pattern as Goose  
+- Eventually: bespoke app inside nayaOS (maybe Zeon OS / Aeon later)
