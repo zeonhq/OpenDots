@@ -29,7 +29,7 @@ it('never claims Slack online without a complete managed channel declaration', (
     ).slack,
   ).toBe('online');
 });
-it('requires Intelligence and model setup and disables voice when either is absent', () => {
+it('requires model setup only; Intelligence is optional and voice needs model', () => {
   expect(
     setupStatus({
       ...config,
@@ -37,7 +37,24 @@ it('requires Intelligence and model setup and disables voice when either is abse
       voiceKey: 'fixture',
       voiceModel: 'fixture',
     }),
-  ).toMatchObject({ missing: ['INTELLIGENCE_API_KEY'], voice: false });
+  ).toMatchObject({
+    missing: [],
+    intelligence: false,
+    model: true,
+    voice: true,
+  });
+  expect(
+    setupStatus({
+      ...config,
+      apiKey: '',
+      model: '',
+      voiceKey: 'fixture',
+      voiceModel: 'fixture',
+    }),
+  ).toMatchObject({
+    missing: ['OPENAI_API_KEY', 'OPENAI_MODEL'],
+    voice: false,
+  });
 });
 it('reports activation failure until the SDK recovers online', () => {
   const declared = {

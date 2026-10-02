@@ -31,6 +31,42 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
       calls: platform.workspace.calls(),
     }),
   );
+  app.get('/threads', (c) =>
+    c.json({ threads: platform.threads.list(platform.workspace.ownerId) }),
+  );
+  app.get('/threads/:id', (c) => {
+    const thread = platform.threads.get(
+      c.req.param('id'),
+      platform.workspace.ownerId,
+    );
+    if (!thread) return c.json({ error: 'Thread not found.' }, 404);
+    try {
+      platform.workspace.requireThread(thread.id);
+    } catch {
+      return c.json({ error: 'Thread not found.' }, 404);
+    }
+    return c.json(thread);
+  });
+  app.post('/threads', async (c) => {
+    const data = z
+      .object({
+        dotId: z.string(),
+        title: z.string().trim().min(1).max(120).default('A new thought'),
+      })
+      .strict()
+      .safeParse(await c.req.json());
+    if (!data.success)
+      return c.json({ error: 'Select an Orb and a conversation title.' }, 400);
+    if (platform.setup().missing.length)
+      return c.json(
+        { error: `Setup required: ${platform.setup().missing.join(', ')}.` },
+        503,
+      );
+    return c.json(
+      await platform.createConversation(data.data.dotId, data.data.title),
+      201,
+    );
+  });
   app.post('/spaces', async (c) => {
     const data = z
       .object({
@@ -126,7 +162,7 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
       .strict()
       .safeParse(await c.req.json());
     if (!data.success)
-      return c.json({ error: 'Select a Dot and a conversation title.' }, 400);
+      return c.json({ error: 'Select an Orb and a conversation title.' }, 400);
     if (platform.setup().missing.length)
       return c.json(
         { error: `Setup required: ${platform.setup().missing.join(', ')}.` },

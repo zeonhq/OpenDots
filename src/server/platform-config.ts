@@ -27,8 +27,8 @@ export function setupStatus(
   slack = 'not_configured',
   activationFailed = false,
 ): SetupStatus {
+  // Lab Phase 1: model alone is enough to boot; Intelligence is optional.
   const missing = [
-    !config.intelligenceKey && 'INTELLIGENCE_API_KEY',
     !config.apiKey && 'OPENAI_API_KEY',
     !config.model && 'OPENAI_MODEL',
   ].filter((item): item is string => !!item);

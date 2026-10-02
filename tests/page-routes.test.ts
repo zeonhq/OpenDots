@@ -1,3 +1,6 @@
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, expect, it } from 'vitest';
 import { Store } from '../src/server/store.js';
 import { WorkspaceStore } from '../src/server/workspace.js';
@@ -14,12 +17,17 @@ function fixture(ownerToken?: string) {
     ws.close();
   });
   const config = { mode: 'live' as const, baseUrl: 'https://example.com' };
-  const platform = new Platform(store, ws, {
-    baseUrl: config.baseUrl,
-    voiceName: 'marin',
-    slackUsers: [],
-    runtimeUrl: '',
-  });
+  const platform = new Platform(
+    store,
+    ws,
+    {
+      baseUrl: config.baseUrl,
+      voiceName: 'marin',
+      slackUsers: [],
+      runtimeUrl: '',
+    },
+    mkdtempSync(join(tmpdir(), 'opendots-threads-')),
+  );
   return {
     ws,
     app: createApp({

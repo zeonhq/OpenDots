@@ -16,24 +16,28 @@ import { runThreadTurn } from './headless.js';
 import { setupStatus, type PlatformConfig } from './platform-config.js';
 import { validateRuntimeScope } from './runtime-scope.js';
 import { learningSelector } from './learning.js';
+import { ThreadStore } from './thread-store.js';
 export class Platform {
   private channelStartupFailed = false;
   readonly pages: PageService;
   readonly computers: ComputerService;
+  readonly threads: ThreadStore;
   readonly intelligence?: CopilotKitIntelligence;
   readonly handler?: CopilotHonoApp;
   constructor(
     readonly store: Store,
     readonly workspace: WorkspaceStore,
     readonly config: PlatformConfig,
+    threadsRoot: string,
   ) {
+    this.threads = new ThreadStore(threadsRoot);
     this.computers = new ComputerService(
       workspace,
       config,
       () => store.settings().paused,
     );
     this.pages = new PageService(workspace, () => {
-      this.requireReady();
+      this.requireIntelligence();
       return this.intelligence!;
     });
     if (!config.intelligenceKey) return;
@@ -96,7 +100,13 @@ export class Platform {
     const missing = this.setup().missing;
     if (missing.length)
       throw new Error(
-        `Setup required: ${missing.join(', ')}. Conversations require CopilotKit Intelligence.`,
+        `Setup required: ${missing.join(', ')}. Configure the model for lab chat.`,
+      );
+  }
+  requireIntelligence() {
+    if (!this.intelligence)
+      throw new Error(
+        'Setup required: INTELLIGENCE_API_KEY. This path still uses CopilotKit Intelligence.',
       );
   }
   async start() {
@@ -117,24 +127,40 @@ export class Platform {
     this.requireReady();
     if (!this.workspace.dot(dotId)) throw new Error('Dot not found.');
     const id = randomUUID();
-    try {
-      await this.intelligence!.createThread({
-        threadId: id,
-        userId: this.workspace.ownerId,
-        agentId: dotId,
-        name: title,
-      });
-    } catch {
-      throw new Error(
-        'Intelligence could not create this conversation. Check the runtime key and connection.',
-      );
+    this.threads.create({
+      id,
+      dotId,
+      ownerId: this.workspace.ownerId,
+      title,
+    });
+    if (this.intelligence) {
+      try {
+        await this.intelligence.createThread({
+          threadId: id,
+          userId: this.workspace.ownerId,
+          agentId: dotId,
+          name: title,
+        });
+      } catch {
+        // Local JSON thread is source of truth for Phase 1; Intelligence sync is best-effort.
+      }
     }
     return this.workspace.bindThread(id, dotId, title);
   }
   async history(threadId: string): Promise<string> {
     this.requireReady();
     this.workspace.requireThread(threadId);
-    const history = await this.intelligence!.getThreadMessages({
+    const local = this.threads.get(threadId, this.workspace.ownerId);
+    if (local?.messages.length) {
+      return local.messages
+        .filter((message) => ['user', 'assistant'].includes(message.role))
+        .slice(-12)
+        .map((message) => `${message.role}: ${message.content}`)
+        .join('\n')
+        .slice(-12000);
+    }
+    if (!this.intelligence) return '';
+    const history = await this.intelligence.getThreadMessages({
       threadId,
       userId: this.workspace.ownerId,
     });
@@ -182,6 +208,7 @@ export class Platform {
     metadata?: Record<string, unknown>,
   ): Promise<string> {
     this.requireReady();
+    this.requireIntelligence();
     const thread = this.workspace.requireThread(threadId);
     return runThreadTurn(
       this.config.runtimeUrl,

@@ -40,6 +40,46 @@ import { TaskRow } from './TaskPresentation';
 import { TaskActions } from './TaskActions';
 import { WorkspaceDialog, type Dialog } from './WorkspaceDialog';
 
+
+function LocalThreadMessages({ threadId }: { threadId: string }) {
+  const [error, setError] = useState('');
+  const [messages, setMessages] = useState<
+    { id: string; role: string; content: string }[]
+  >([]);
+  useEffect(() => {
+    let active = true;
+    void api<{ messages: { id: string; role: string; content: string }[] }>(
+      `/threads/${threadId}`,
+    )
+      .then((thread) => {
+        if (active) setMessages(thread.messages ?? []);
+      })
+      .catch((e) => {
+        if (active)
+          setError(e instanceof Error ? e.message : 'Could not load thread.');
+      });
+    return () => {
+      active = false;
+    };
+  }, [threadId]);
+  if (error) return <p className="chat-error">{error}</p>;
+  if (!messages.length)
+    return (
+      <p className="muted">
+        No messages yet — send will land with the Phase 2 Orb adapter.
+      </p>
+    );
+  return (
+    <div className="chat-transcript">
+      {messages.map((message) => (
+        <article key={message.id} className={`bubble ${message.role}`}>
+          <p>{message.content}</p>
+        </article>
+      ))}
+    </div>
+  );
+}
+
 export function App() {
   const [state, setState] = useState<State>();
   const [workspace, setWorkspace] = useState<WorkspaceState>();
@@ -246,7 +286,7 @@ export function App() {
     return (
       <main className="unlock">
         <Mascot state="working" />
-        <h1>Finding your dots…</h1>
+        <h1>Finding your Orbs…</h1>
         {error && (
           <>
             <p className="chat-error">{error}</p>
@@ -420,7 +460,7 @@ export function App() {
           />
         ) : (
           <div className="sidebar-empty">
-            Set up text chat to begin a persistent conversation.
+            Set up Orb chat (model key) to begin a persistent conversation.
           </div>
         )}
         <div className="sidebar-bottom">
@@ -567,7 +607,7 @@ export function App() {
         ) : view === 'chat' ? (
           <div className={`chat-workspace ${pane ? 'split' : ''}`}>
             <div className="chat-column">
-              {thread && configured ? (
+              {thread && configured && workspace.setup.intelligence ? (
                 <Chat
                   key={thread.id}
                   thread={thread}
@@ -585,6 +625,23 @@ export function App() {
                     setDialog({ type: 'schedule', threadId: thread.id })
                   }
                 />
+              ) : thread && configured ? (
+                <div className="new-conversation">
+                  <div className="empty-chat-persona">
+                    <Mascot
+                      identity={dot.id}
+                      name={dot.name}
+                      state={state.settings.paused ? 'paused' : 'idle'}
+                    />
+                    <h2>{thread.title}</h2>
+                    <p>
+                      Local Orb thread is ready on this lab volume. Agent turns
+                      still need the Phase 2 provider adapter (Intelligence
+                      runtime not required for create/list).
+                    </p>
+                  </div>
+                  <LocalThreadMessages threadId={thread.id} />
+                </div>
               ) : (
                 <div className="new-conversation">
                   <div className="empty-chat-persona">
@@ -610,14 +667,14 @@ export function App() {
                         <Settings2 size={20} />
                       </span>
                       <div>
-                        <strong>Connect your Dot</strong>
+                        <strong>Connect your Orb</strong>
                         <p>
-                          Connect your model and conversation service in
-                          Settings to start chatting. Your Spaces and Dot
-                          preferences are ready to use.
+                          Add a model key in Settings to start chatting. Local
+                          Orb threads stay on this lab volume — no outside
+                          conversation service required.
                         </p>
                         <a
-                          href="https://github.com/CopilotKit/OpenDots/blob/main/docs/SETUP.md"
+                          href="https://github.com/zeonhq/OpenDots/blob/main/docs/SETUP.md"
                           target="_blank"
                           rel="noreferrer"
                         >
@@ -889,7 +946,8 @@ export function App() {
       )}
     </div>
   );
-  return configured ? (
+  const intelligence = !!workspace?.setup.intelligence;
+  return configured && intelligence ? (
     <CopilotKitProvider runtimeUrl="/api/copilotkit" headers={authHeaders()}>
       {content}
     </CopilotKitProvider>

@@ -8,6 +8,7 @@ import { createApp } from './app.js';
 import { WorkspaceStore } from './workspace.js';
 import { Platform } from './platform.js';
 import type { PlatformConfig } from './platform-config.js';
+import { dirname, join } from 'node:path';
 const host = process.env.HOST ?? '127.0.0.1';
 const port = Number(process.env.PORT ?? 4310);
 const ownerToken = process.env.OWNER_TOKEN;
@@ -50,7 +51,10 @@ const config: PlatformConfig = {
   runtimeUrl: `http://${host === '::1' ? '[::1]' : '127.0.0.1'}:${port}/api/copilotkit`,
   ownerToken,
 };
-const platform = new Platform(store, workspace, config);
+const threadsRoot =
+  process.env.THREADS_PATH ??
+  (database === ':memory:' ? 'data/threads' : join(dirname(database), 'threads'));
+const platform = new Platform(store, workspace, config, threadsRoot);
 const researchConfig = {
   mode: 'live' as const,
   apiKey: config.apiKey,
