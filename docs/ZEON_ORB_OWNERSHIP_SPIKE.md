@@ -267,3 +267,16 @@ Concrete paths skimmed from `package.json` and `src/` (no secrets).
 - Multi-LLM via adapter (OpenAI / Grok / Claude / Naya AI); **Phase 2.5** defaults `OPENAI_BASE_URL` to Hermes proxy / zeonhq/api when available — see **Zeon intelligence (zeonhq/api)**  
 - Goal: own Orb/Orbit using OpenDots UI/architecture, same adoption pattern as Goose  
 - Eventually: bespoke app inside nayaOS (maybe Zeon OS / Aeon later)
+
+---
+
+## Goose wire parallel (Hermes into OpenDots lab — 2026-10-01 PT)
+
+Same adoption pattern as Goose in nayaORB: **edge adapter + Zeon owns the path**.
+
+- Keep OpenAI-compatible consumer shape (`local-chat.ts` / `OPENAI_*`); do not bake provider into nayaOS or invent a new SaaS.
+- Point lab runtime at Hermes **subscription proxy** wire `:8645/v1` (not dashboard `:9132`). Container uses `OPENAI_BASE_URL=http://host.docker.internal:8645/v1`.
+- `OPENAI_API_KEY` placeholder (`sk-unused`); proxy attaches real OAuth. Secrets via Bitwarden **names** only — `secret_ref`: `bitwarden:nayaos/orb/hermes` (env hint `BWS_ACCESS_TOKEN`).
+- Model id follows Goose/nayaORB lab wire (`grok-4.6` in Studio `opendots.env`); swap only to ids the proxy advertises.
+- Start command (documented): `hermes proxy start` (or `hermes -p <profile> proxy start --provider nous`) — `DEFAULT_PORT=8645`. See hermes-agent `subscription-proxy` docs.
+- Studio wire attempt: env + app container recreated; nothing listening on **8645** (Tailscale lab `agents…:8645` timed out; local `hermes -p hari proxy start` refused — Nous refresh invalid). `POST /api/threads/:id/messages` → **503**. Re-auth / bring proxy up, then retest — no push.
